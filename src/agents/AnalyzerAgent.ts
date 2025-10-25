@@ -62,7 +62,7 @@ export class AnalyzerAgent {
           const accountInfo = await this.queryAccount(agentId)
           console.log(`✅ Agent account verified: ${accountInfo.balance} tinybars`)
         } catch (error) {
-          console.warn(`⚠️  Could not verify agent account ${agentId}:`, error.message)
+          console.warn(`⚠️  Could not verify agent account ${agentId}:`, (error as Error).message)
         }
       }
     } catch (error) {
@@ -89,8 +89,7 @@ export class AnalyzerAgent {
         balance: accountInfo.balance.toString(),
         key: accountInfo.key?.toString(),
         isDeleted: accountInfo.isDeleted,
-        autoRenewPeriod: accountInfo.autoRenewPeriod?.toString(),
-        memo: accountInfo.memo
+        autoRenewPeriod: accountInfo.autoRenewPeriod?.toString()
       }
     } catch (error) {
       console.error(`❌ Failed to query account ${accountId}:`, error)

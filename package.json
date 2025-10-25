@@ -1,9 +1,11 @@
 {
   "name": "hedera-a2a-agents",
   "version": "1.0.0",
-  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:analyzer": "ts-node test-analyzer.ts",
+    "test:verifier": "ts-node test-verifier.ts",
+    "test:settlement": "ts-node test-settlement.ts"
   },
   "repository": {
     "type": "git",
