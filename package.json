@@ -5,7 +5,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:analyzer": "ts-node test-analyzer.ts",
     "test:verifier": "ts-node test-verifier.ts",
-    "test:settlement": "ts-node test-settlement.ts"
+    "test:settlement": "ts-node test-settlement.ts",
+    "demo": "ts-node demo/orchestrator.ts"
   },
   "repository": {
     "type": "git",

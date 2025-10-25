@@ -139,7 +139,7 @@ export class VerifierAgent {
         console.log(chalk.yellow('✗ Rejected'))
       }
 
-      return result
+      // Result is sent via HCS message, no need to return
     } catch (error) {
       console.error('❌ Error validating proposal:', error)
       throw error

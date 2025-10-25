@@ -62,11 +62,8 @@ export class SettlementAgent {
         throw new Error('Missing required environment variable: SETTLEMENT_TOPIC_ID')
       }
 
-      // Connect hcsClient
-      await this.hcsClient.connect()
-
-      // Subscribe to SETTLEMENT_TOPIC_ID
-      await this.hcsClient.subscribe(topicId, this.handleMessage.bind(this))
+      // Start polling for messages (HCS10Client doesn't have connect/subscribe methods)
+      this.startMessagePolling(topicId)
 
       console.log(chalk.yellow('Listening for approvals...'))
       console.log(`🔗 SettlementAgent initialized for Hedera testnet`)
@@ -77,6 +74,23 @@ export class SettlementAgent {
       console.error('❌ Failed to initialize SettlementAgent:', error)
       throw error
     }
+  }
+
+  private startMessagePolling(topicId: string): void {
+    // Poll for messages every 5 seconds
+    setInterval(async () => {
+      try {
+        const result = await this.hcsClient.getMessages(topicId)
+        if (result.messages && result.messages.length > 0) {
+          console.log(chalk.yellow(`📨 Found ${result.messages.length} new message(s)`))
+          for (const message of result.messages) {
+            await this.handleMessage(message)
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error polling for messages:', error)
+      }
+    }, 5000) // Poll every 5 seconds
   }
 
   private async handleMessage(message: any): Promise<void> {
@@ -100,10 +114,10 @@ export class SettlementAgent {
 
       // Create payment requirements (use a2a-x402 format)
       const requirements = {
-        scheme: 'exact',
-        network: 'base-sepolia',
-        asset: process.env.USDC_CONTRACT,
-        payTo: process.env.MERCHANT_WALLET_ADDRESS,
+        scheme: 'exact' as const,
+        network: 'base-sepolia' as const,
+        asset: process.env.USDC_CONTRACT || '',
+        payTo: process.env.MERCHANT_WALLET_ADDRESS || '',
         maxAmountRequired: '10000000', // 10 USDC in atomic units
         resource: '/agent-settlement',
         description: 'A2A agent settlement',
@@ -114,8 +128,8 @@ export class SettlementAgent {
       // Call processPayment
       const paymentPayload = await processPayment(requirements, this.wallet)
 
-      // Extract tx hash from paymentPayload
-      const txHash = paymentPayload.transactionHash || paymentPayload.txHash
+      // Extract tx hash from paymentPayload (check actual structure)
+      const txHash = (paymentPayload as any).transactionHash || (paymentPayload as any).txHash || 'unknown'
 
       console.log(chalk.green('✓ Payment complete'), txHash)
 
