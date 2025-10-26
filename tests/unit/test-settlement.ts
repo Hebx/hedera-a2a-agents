@@ -1,4 +1,4 @@
-import { SettlementAgent } from './src/agents/SettlementAgent.js'
+import { SettlementAgent } from './src/agents/SettlementAgent'
 import chalk from 'chalk'
 
 async function testSettlementAgent() {
