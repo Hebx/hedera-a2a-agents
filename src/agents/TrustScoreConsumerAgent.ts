@@ -9,6 +9,8 @@
 
 import { HCS10Client } from '@hashgraphonline/standards-agent-kit'
 import axios, { AxiosInstance } from 'axios'
+import { ethers } from 'ethers'
+import { processPayment } from 'a2a-x402'
 import { X402FacilitatorServer } from '../facilitator/X402FacilitatorServer'
 import { ProductRegistry } from '../marketplace/ProductRegistry'
 import { A2AProtocol } from '../protocols/A2AProtocol'
@@ -50,6 +52,8 @@ export class TrustScoreConsumerAgent {
   private httpClient: AxiosInstance
   private meshOrchestrator?: any // Will be set when registered
   private negotiatedOffers: Map<string, AP2Offer> = new Map() // productId -> offer
+  private wallet?: ethers.Wallet // For EVM-based payments (USDC)
+  private provider?: ethers.JsonRpcProvider
 
   constructor() {
     // Get agent credentials
@@ -68,6 +72,14 @@ export class TrustScoreConsumerAgent {
     // Initialize services
     this.facilitator = new X402FacilitatorServer()
     this.productRegistry = new ProductRegistry()
+
+    // Initialize wallet for EVM-based payments (if needed)
+    const baseRpcUrl = process.env.BASE_RPC_URL
+    const walletPrivateKey = process.env.SETTLEMENT_WALLET_PRIVATE_KEY || process.env.CONSUMER_WALLET_PRIVATE_KEY
+    if (baseRpcUrl && walletPrivateKey) {
+      this.provider = new ethers.JsonRpcProvider(baseRpcUrl)
+      this.wallet = new ethers.Wallet(walletPrivateKey, this.provider)
+    }
 
     // Initialize A2A protocol
     this.a2a = new A2AProtocol(this.hcsClient, agentId, ['trustscore', 'payment', 'negotiation'])
@@ -274,35 +286,82 @@ export class TrustScoreConsumerAgent {
 
   /**
    * Pay for API access using x402 facilitator
+   * 
+   * Uses proper x402 protocol flow:
+   * 1. Create payment authorization using processPayment (for EVM) or Hedera SDK (for Hedera)
+   * 2. Verify payment via facilitator
+   * 3. Settle payment via facilitator (executes actual transfer)
    */
   private async payForAccess(paymentRequirements: PaymentRequirements): Promise<string | null> {
     try {
-      console.log(chalk.blue(`💳 Paying ${paymentRequirements.maxAmountRequired} tinybars for access...`))
+      const amount = paymentRequirements.maxAmountRequired
+      const network = paymentRequirements.network
+      
+      console.log(chalk.blue(`💳 Paying ${amount} ${paymentRequirements.asset} for access on ${network}...`))
 
-      // Use facilitator to settle payment
-      // First, we need to create a payment header from requirements
-      // For now, we'll create a simplified payment header
-      // In production, this would come from the x402 payment flow
-      const paymentHeader = Buffer.from(JSON.stringify({
-        x402Version: 1,
-        scheme: paymentRequirements.scheme,
-        network: paymentRequirements.network,
-        payload: {
-          authorization: {
-            value: paymentRequirements.maxAmountRequired,
-            to: paymentRequirements.payTo,
-            validBefore: Math.floor(Date.now() / 1000) + paymentRequirements.maxTimeoutSeconds
+      let paymentPayload: any
+      let paymentHeader: string
+
+      // Create payment authorization based on network
+      if (network === 'hedera-testnet') {
+        // For Hedera, create payment payload manually (Hedera doesn't use EVM wallets)
+        // The facilitator will handle the actual Hedera transfer
+        paymentPayload = {
+          x402Version: 1,
+          scheme: paymentRequirements.scheme,
+          network: paymentRequirements.network,
+          payload: {
+            authorization: {
+              from: this.agentId, // Hedera account ID
+              value: paymentRequirements.maxAmountRequired,
+              to: paymentRequirements.payTo,
+              validBefore: Math.floor(Date.now() / 1000) + paymentRequirements.maxTimeoutSeconds
+            }
           }
         }
-      })).toString('base64')
+        paymentHeader = Buffer.from(JSON.stringify(paymentPayload)).toString('base64')
+      } else {
+        // For EVM networks (Base Sepolia, etc.), use processPayment from a2a-x402
+        if (!this.wallet) {
+          throw new Error('Wallet not initialized. Set BASE_RPC_URL and SETTLEMENT_WALLET_PRIVATE_KEY for EVM payments.')
+        }
 
+        // Convert requirements to x402 format
+        const x402Requirements = {
+          scheme: paymentRequirements.scheme,
+          network: paymentRequirements.network,
+          asset: paymentRequirements.asset,
+          payTo: paymentRequirements.payTo,
+          maxAmountRequired: paymentRequirements.maxAmountRequired,
+          resource: paymentRequirements.resource,
+          description: paymentRequirements.description,
+          mimeType: paymentRequirements.mimeType,
+          maxTimeoutSeconds: paymentRequirements.maxTimeoutSeconds
+        }
+
+        // Create payment authorization using x402 protocol
+        paymentPayload = await processPayment(x402Requirements as any, this.wallet)
+        paymentHeader = Buffer.from(JSON.stringify(paymentPayload)).toString('base64')
+      }
+
+      // Verify payment via facilitator
+      console.log(chalk.blue('🔍 Verifying payment...'))
+      const verificationResult = await this.facilitator.verify(paymentHeader, paymentRequirements)
+      
+      if (!verificationResult.isValid) {
+        throw new Error(`Payment verification failed: ${verificationResult.invalidReason}`)
+      }
+      console.log(chalk.green('✅ Payment verification successful'))
+
+      // Settle payment via facilitator (executes actual transfer)
+      console.log(chalk.blue('🏦 Settling payment...'))
       const paymentResult = await this.facilitator.settle(
         paymentHeader,
         paymentRequirements
       )
 
       if (!paymentResult || !paymentResult.success || !paymentResult.txHash) {
-        throw new Error('Payment settlement failed')
+        throw new Error(`Payment settlement failed: ${paymentResult?.error || 'Unknown error'}`)
       }
 
       // Log payment verification
@@ -314,6 +373,7 @@ export class TrustScoreConsumerAgent {
       })
 
       console.log(chalk.green(`✅ Payment successful: ${paymentResult.txHash}`))
+      console.log(chalk.gray(`   Network: ${paymentResult.networkId}`))
       return paymentHeader
     } catch (error) {
       console.error(chalk.red(`❌ Payment failed:`), error)
