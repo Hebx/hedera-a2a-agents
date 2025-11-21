@@ -103,11 +103,8 @@ export class ArkhiaAnalyticsService {
     return await this.retryWithBackoff(async () => {
       console.log(chalk.blue(`🔍 Fetching account info for ${accountId}...`))
       
-      const response = await this.client.get(`/api/v1/accounts/${accountId}`, {
-        params: {
-          network: this.config.network
-        }
-      })
+      // Arkhia API endpoint: /hedera/{network}/api/v1/accounts/{accountId}
+      const response = await this.client.get(`/hedera/${this.config.network}/api/v1/accounts/${accountId}`)
 
       const accountInfo = response.data as ArkhiaAccountInfo
       
@@ -208,18 +205,15 @@ export class ArkhiaAnalyticsService {
     return await this.retryWithBackoff(async () => {
       console.log(chalk.blue(`🔍 Fetching HCS messages for ${accountId}...`))
       
-      const params: any = {
-        network: this.config.network
-      }
-      
+      // Arkhia API endpoint: /hedera/{network}/api/v1/accounts/{accountId}/messages
+      // Note: HCS messages endpoint may vary - adjust based on actual API
+      const params: any = {}
       if (topicIds && topicIds.length > 0) {
         params.topic_ids = topicIds.join(',')
       }
 
-      // Arkhia API endpoint: /hedera/{network}/api/v1/accounts/{accountId}/messages
-      // Note: HCS messages endpoint may vary - adjust based on actual API
       const response = await this.client.get(`/hedera/${this.config.network}/api/v1/accounts/${accountId}/messages`, {
-        params: topicIds && topicIds.length > 0 ? { topic_ids: topicIds.join(',') } : {}
+        params
       })
 
       const messages = response.data.messages || response.data as HCSMessage[]
