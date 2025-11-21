@@ -50,6 +50,7 @@ export class ArkhiaAnalyticsService {
   private cache: Map<string, CacheEntry<any>> = new Map()
   private readonly DEFAULT_BASE_URL = 'https://api.arkhia.io'
   private readonly DEFAULT_CACHE_TTL = 3600000 // 1 hour
+  private readonly API_VERSION = 'v2' // Arkhia API version
 
   constructor(config: ArkhiaConfig = {}) {
     // Get API key from config or environment
@@ -71,10 +72,11 @@ export class ArkhiaAnalyticsService {
     }
 
     // Initialize Axios client
+    // Arkhia API uses lowercase header: x-api-key
     this.client = axios.create({
       baseURL: this.config.baseUrl,
       headers: {
-        'X-API-Key': this.config.apiKey,
+        'x-api-key': this.config.apiKey,
         'Content-Type': 'application/json'
       },
       timeout: 30000 // 30 seconds
@@ -138,9 +140,9 @@ export class ArkhiaAnalyticsService {
     return await this.retryWithBackoff(async () => {
       console.log(chalk.blue(`🔍 Fetching transactions for ${accountId} (limit: ${limit})...`))
       
-      const response = await this.client.get(`/api/v1/accounts/${accountId}/transactions`, {
+      // Arkhia API endpoint: /hedera/{network}/api/v1/accounts/{accountId}/transactions
+      const response = await this.client.get(`/hedera/${this.config.network}/api/v1/accounts/${accountId}/transactions`, {
         params: {
-          network: this.config.network,
           limit
         }
       })
@@ -174,11 +176,8 @@ export class ArkhiaAnalyticsService {
     return await this.retryWithBackoff(async () => {
       console.log(chalk.blue(`🔍 Fetching token balances for ${accountId}...`))
       
-      const response = await this.client.get(`/api/v1/accounts/${accountId}/tokens`, {
-        params: {
-          network: this.config.network
-        }
-      })
+      // Arkhia API endpoint: /hedera/{network}/api/v1/accounts/{accountId}/tokens
+      const response = await this.client.get(`/hedera/${this.config.network}/api/v1/accounts/${accountId}/tokens`)
 
       const balances = response.data.tokens || response.data as TokenBalance[]
       
@@ -218,8 +217,10 @@ export class ArkhiaAnalyticsService {
         params.topic_ids = topicIds.join(',')
       }
 
-      const response = await this.client.get(`/api/v1/accounts/${accountId}/messages`, {
-        params
+      // Arkhia API endpoint: /hedera/{network}/api/v1/accounts/{accountId}/messages
+      // Note: HCS messages endpoint may vary - adjust based on actual API
+      const response = await this.client.get(`/hedera/${this.config.network}/api/v1/accounts/${accountId}/messages`, {
+        params: topicIds && topicIds.length > 0 ? { topic_ids: topicIds.join(',') } : {}
       })
 
       const messages = response.data.messages || response.data as HCSMessage[]
