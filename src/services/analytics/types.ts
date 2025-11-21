@@ -45,6 +45,10 @@ export interface ArkhiaAccountInfo {
   balance: {
     balance: number            // Balance in tinybars
     timestamp: string
+    tokens?: Array<{           // Token balances included in account response
+      token_id: string
+      balance: number
+    }>
   }
   created_timestamp: string    // Account creation time
   key: {
@@ -55,6 +59,7 @@ export interface ArkhiaAccountInfo {
   deleted: boolean
   ethereum_nonce: number
   evm_address: string
+  transactions?: ArkhiaTransaction[]  // Transactions included in account response
 }
 
 /**

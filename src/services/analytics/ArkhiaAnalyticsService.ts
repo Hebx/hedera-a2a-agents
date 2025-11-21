@@ -119,6 +119,9 @@ export class ArkhiaAnalyticsService {
   /**
    * Get transaction history
    * 
+   * Note: Arkhia account endpoint includes transactions in the response.
+   * We'll fetch account info and extract transactions from it.
+   * 
    * @param accountId - Hedera account ID
    * @param limit - Maximum number of transactions to retrieve (default: 100)
    * @returns Array of transactions
@@ -136,25 +139,33 @@ export class ArkhiaAnalyticsService {
     return await this.retryWithBackoff(async () => {
       console.log(chalk.blue(`🔍 Fetching transactions for ${accountId} (limit: ${limit})...`))
       
-      // Arkhia API endpoint: /hedera/{network}/api/v1/accounts/{accountId}/transactions
-      const response = await this.client.get(`/hedera/${this.config.network}/api/v1/accounts/${accountId}/transactions`, {
+      // Arkhia account endpoint includes transactions in the response
+      // Use query parameter to limit results
+      const response = await this.client.get(`/hedera/${this.config.network}/api/v1/accounts/${accountId}`, {
         params: {
-          limit
+          limit: limit.toString()
         }
       })
 
-      const transactions = response.data.transactions || response.data as ArkhiaTransaction[]
+      // Extract transactions from account response
+      // Transactions are in response.data.transactions array
+      const transactions = response.data.transactions || []
+      
+      // Limit to requested number
+      const limitedTransactions = transactions.slice(0, limit)
       
       // Store in cache (shorter TTL for transactions as they change frequently)
-      this.setCache(cacheKey, transactions, this.config.cacheTTL / 2)
+      this.setCache(cacheKey, limitedTransactions, this.config.cacheTTL / 2)
       
-      console.log(chalk.green(`✅ Retrieved ${transactions.length} transactions for ${accountId}`))
-      return Array.isArray(transactions) ? transactions : [transactions]
+      console.log(chalk.green(`✅ Retrieved ${limitedTransactions.length} transactions for ${accountId}`))
+      return limitedTransactions
     })
   }
 
   /**
    * Get token balances
+   * 
+   * Note: Arkhia account endpoint includes token balances in balance.tokens array.
    * 
    * @param accountId - Hedera account ID
    * @returns Array of token balances
@@ -172,16 +183,24 @@ export class ArkhiaAnalyticsService {
     return await this.retryWithBackoff(async () => {
       console.log(chalk.blue(`🔍 Fetching token balances for ${accountId}...`))
       
-      // Arkhia API endpoint: /hedera/{network}/api/v1/accounts/{accountId}/tokens
-      const response = await this.client.get(`/hedera/${this.config.network}/api/v1/accounts/${accountId}/tokens`)
+      // Arkhia account endpoint includes tokens in balance.tokens array
+      const response = await this.client.get(`/hedera/${this.config.network}/api/v1/accounts/${accountId}`)
 
-      const balances = response.data.tokens || response.data as TokenBalance[]
+      // Extract token balances from account response
+      const tokens = response.data.balance?.tokens || []
+      
+      // Transform to TokenBalance format
+      const balances: TokenBalance[] = tokens.map((token: any) => ({
+        token_id: token.token_id,
+        balance: token.balance || 0,
+        decimals: 0 // Will need to fetch from token info if needed
+      }))
       
       // Store in cache
       this.setCache(cacheKey, balances)
       
-      console.log(chalk.green(`✅ Retrieved token balances for ${accountId}`))
-      return Array.isArray(balances) ? balances : [balances]
+      console.log(chalk.green(`✅ Retrieved ${balances.length} token balances for ${accountId}`))
+      return balances
     })
   }
 
