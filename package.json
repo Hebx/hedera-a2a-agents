@@ -100,6 +100,8 @@
     "test:a2a-protocol": "ts-node tests/integration/test-a2a-protocol.ts",
     "test:a2a-unit": "ts-node tests/unit/test-a2a-unit.ts",
     "test:ap2-payments": "ts-node tests/integration/test-ap2-payments.ts",
+    "test:trustscore-integration": "ts-node tests/integration/test-trustscore-oracle-complete.ts",
+    "test:trustscore-e2e": "ts-node tests/e2e/test-trustscore-oracle-e2e.ts",
     "test:hitl": "ts-node tests/e2e/test-human-in-the-loop.ts",
     "test:x402-complete": "ts-node tests/integration/test-complete-x402-system.ts",
     "test:x402-server": "ts-node tests/integration/test-payment-server.ts",
