@@ -7,7 +7,7 @@
 export { A2AProtocol, A2AHandshakeProtocol } from './A2AProtocol'
 export type { A2AMessage, A2AHandshake } from './A2AProtocol'
 
-export { AP2Protocol } from './AP2Protocol'
+export { AP2Protocol, AP2TrustScoreNegotiation } from './AP2Protocol'
 export type { AP2PaymentRequest, AP2PaymentResponse } from './AP2Protocol'
 
 export { A2ANegotiation } from './A2ANegotiation'

@@ -12,7 +12,7 @@ import axios, { AxiosInstance } from 'axios'
 import { X402FacilitatorServer } from '../facilitator/X402FacilitatorServer'
 import { ProductRegistry } from '../marketplace/ProductRegistry'
 import { A2AProtocol } from '../protocols/A2AProtocol'
-import { AP2Protocol } from '../protocols/AP2Protocol'
+import { AP2Protocol, AP2TrustScoreNegotiation } from '../protocols/AP2Protocol'
 import { A2ANegotiation } from '../protocols/A2ANegotiation'
 import { 
   ProductRegistryEntry, 
@@ -133,18 +133,14 @@ export class TrustScoreConsumerAgent {
         throw new Error(`Product ${productId} not found`)
       }
 
-      // Create negotiation request
-      const negotiationRequest: AP2NegotiationRequest = {
-        type: 'AP2::NEGOTIATE',
-        productId: product.productId,
-        maxPrice: maxPrice || product.defaultPrice,
-        currency: product.currency,
-        rateLimit: product.rateLimit,
-        metadata: {
-          buyerAgentId: this.agentId,
-          timestamp: Date.now()
-        }
-      }
+      // Create negotiation request using AP2TrustScoreNegotiation
+      const negotiationRequest = AP2TrustScoreNegotiation.createNegotiationRequest(
+        product.productId,
+        this.agentId,
+        maxPrice || product.defaultPrice,
+        product.currency,
+        product.rateLimit
+      )
 
       // Send negotiation request to producer
       const negotiateUrl = `${producerEndpoint}/ap2/negotiate`
@@ -152,15 +148,23 @@ export class TrustScoreConsumerAgent {
 
       const offer: AP2Offer = response.data
 
-      // Validate offer
+      // Validate offer using AP2TrustScoreNegotiation
+      const validation = AP2TrustScoreNegotiation.validateOffer(offer)
+      if (!validation.valid) {
+        throw new Error(`Invalid offer: ${validation.error}`)
+      }
+
       if (offer.type !== 'AP2::OFFER' || offer.productId !== productId) {
         throw new Error('Invalid offer received')
       }
 
-      // Check if offer is still valid
-      if (offer.validUntil < Date.now()) {
+      // Check if offer is expired
+      if (AP2TrustScoreNegotiation.isOfferExpired(offer)) {
         throw new Error('Offer has expired')
       }
+
+      // Accept the offer
+      const acceptance = AP2TrustScoreNegotiation.acceptOffer(offer, this.agentId)
 
       // Store negotiated offer
       this.negotiatedOffers.set(productId, offer)

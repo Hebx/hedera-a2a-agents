@@ -15,7 +15,7 @@ import { TrustScoreComputationEngine } from '../services/analytics/TrustScoreCom
 import { ProductRegistry } from '../marketplace/ProductRegistry'
 import { TrustScoreRoute } from '../resource-server/routes/trustScoreRoute'
 import { A2AProtocol } from '../protocols/A2AProtocol'
-import { AP2Protocol } from '../protocols/AP2Protocol'
+import { AP2Protocol, AP2TrustScoreNegotiation } from '../protocols/AP2Protocol'
 import { A2ANegotiation } from '../protocols/A2ANegotiation'
 import { 
   ProductRegistryEntry, 
@@ -174,6 +174,18 @@ export class TrustScoreProducerAgent {
 
       console.log(chalk.blue(`💬 Received AP2 negotiation request for product: ${negotiationRequest.productId}`))
 
+      // Validate request using AP2TrustScoreNegotiation
+      const validation = AP2TrustScoreNegotiation.validateNegotiationRequest(negotiationRequest)
+      if (!validation.valid) {
+        res.status(400).json({
+          error: {
+            code: 'INVALID_NEGOTIATION_REQUEST',
+            message: validation.error
+          }
+        })
+        return
+      }
+
       // Get product from registry
       const product = this.productRegistry.getProduct(negotiationRequest.productId)
       if (!product) {
@@ -187,8 +199,8 @@ export class TrustScoreProducerAgent {
       }
 
       // Check if buyer's max price is acceptable
-      const requestedPrice = parseInt(negotiationRequest.maxPrice)
-      const productPrice = parseInt(product.defaultPrice)
+      const requestedPrice = parseFloat(negotiationRequest.maxPrice)
+      const productPrice = parseFloat(product.defaultPrice)
 
       if (requestedPrice < productPrice) {
         res.status(400).json({
@@ -200,21 +212,15 @@ export class TrustScoreProducerAgent {
         return
       }
 
-      // Create offer
-      const offer: AP2Offer = {
-        type: 'AP2::OFFER',
-        productId: product.productId,
-        price: product.defaultPrice,
-        currency: product.currency,
-        slippage: 'none',
-        rateLimit: negotiationRequest.rateLimit || product.rateLimit,
-        sla: product.sla,
-        validUntil: Date.now() + 300000, // 5 minutes
-        metadata: {
-          producerAgentId: this.agentId,
-          timestamp: Date.now()
-        }
-      }
+      // Create offer using AP2TrustScoreNegotiation
+      const offer = AP2TrustScoreNegotiation.createOffer(
+        product.productId,
+        this.agentId,
+        product.defaultPrice,
+        negotiationRequest.currency || product.currency,
+        negotiationRequest.rateLimit || product.rateLimit,
+        product.sla
+      )
 
       // Log negotiation event
       await this.logEvent('TRUST_NEGOTIATION_STARTED', {
