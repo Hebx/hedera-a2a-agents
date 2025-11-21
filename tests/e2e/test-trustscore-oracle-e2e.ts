@@ -253,10 +253,12 @@ async function testE2EWorkflow(): Promise<boolean> {
       const products = await consumer.discoverProducts()
       if (products.length > 0) {
         const product = products[0]
-        console.log(chalk.green('✅ Rate limit structure verified'))
-        console.log(chalk.gray(`   Calls: ${product.rateLimit.calls}`))
-        console.log(chalk.gray(`   Period: ${product.rateLimit.period}s`))
-        results.rateLimiting = true
+        if (product) {
+          console.log(chalk.green('✅ Rate limit structure verified'))
+          console.log(chalk.gray(`   Calls: ${product.rateLimit.calls}`))
+          console.log(chalk.gray(`   Period: ${product.rateLimit.period}s`))
+          results.rateLimiting = true
+        }
       }
     }
     console.log('')
