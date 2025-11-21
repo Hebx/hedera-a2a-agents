@@ -48,9 +48,8 @@ export class ArkhiaAnalyticsService {
   private client: AxiosInstance
   private config: Required<ArkhiaConfig>
   private cache: Map<string, CacheEntry<any>> = new Map()
-  private readonly DEFAULT_BASE_URL = 'https://api.arkhia.io'
+  private readonly DEFAULT_BASE_URL = 'https://pool.arkhia.io'
   private readonly DEFAULT_CACHE_TTL = 3600000 // 1 hour
-  private readonly API_VERSION = 'v2' // Arkhia API version
 
   constructor(config: ArkhiaConfig = {}) {
     // Get API key from config or environment
