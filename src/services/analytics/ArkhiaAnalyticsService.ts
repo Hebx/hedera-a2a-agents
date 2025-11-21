@@ -15,6 +15,7 @@ import {
   HCSMessage
 } from './types'
 import { loadEnvIfNeeded } from '../../utils/env'
+import { globalErrorHandler, ErrorCategory, ErrorSeverity } from '../../utils/ErrorHandler'
 import chalk from 'chalk'
 
 // Load environment variables
@@ -48,6 +49,12 @@ export class ArkhiaAnalyticsService {
   private client: AxiosInstance
   private config: Required<ArkhiaConfig>
   private cache: Map<string, CacheEntry<any>> = new Map()
+  private circuitBreaker = globalErrorHandler.getCircuitBreaker('arkhia-api', {
+    failureThreshold: 5,
+    successThreshold: 2,
+    timeout: 60000, // 1 minute
+    resetTimeout: 300000 // 5 minutes
+  })
   private readonly DEFAULT_BASE_URL = 'https://pool.arkhia.io'
   private readonly DEFAULT_CACHE_TTL = 3600000 // 1 hour
 
@@ -100,19 +107,29 @@ export class ArkhiaAnalyticsService {
       return cached
     }
 
-    return await this.retryWithBackoff(async () => {
-      console.log(chalk.blue(`🔍 Fetching account info for ${accountId}...`))
-      
-      // Arkhia API endpoint: /hedera/{network}/api/v1/accounts/{accountId}
-      const response = await this.client.get(`/hedera/${this.config.network}/api/v1/accounts/${accountId}`)
+    return await this.circuitBreaker.execute(async () => {
+      return await this.retryWithBackoff(async () => {
+        console.log(chalk.blue(`🔍 Fetching account info for ${accountId}...`))
+        
+        // Arkhia API endpoint: /hedera/{network}/api/v1/accounts/{accountId}
+        const response = await this.client.get(`/hedera/${this.config.network}/api/v1/accounts/${accountId}`)
 
-      const accountInfo = response.data as ArkhiaAccountInfo
-      
-      // Store in cache
-      this.setCache(cacheKey, accountInfo)
-      
-      console.log(chalk.green(`✅ Account info retrieved for ${accountId}`))
-      return accountInfo
+        const accountInfo = response.data as ArkhiaAccountInfo
+        
+        // Store in cache
+        this.setCache(cacheKey, accountInfo)
+        
+        console.log(chalk.green(`✅ Account info retrieved for ${accountId}`))
+        return accountInfo
+      })
+    }).catch(error => {
+      const logId = globalErrorHandler.logError(
+        error as Error,
+        ErrorCategory.SERVICE,
+        ErrorSeverity.HIGH,
+        { accountId, service: 'arkhia-api', method: 'getAccountInfo' }
+      )
+      throw new Error(`Failed to fetch account info: ${(error as Error).message} (Log ID: ${logId})`)
     })
   }
 
