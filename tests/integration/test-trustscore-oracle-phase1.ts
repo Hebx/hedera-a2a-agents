@@ -30,8 +30,12 @@ async function testArkhiaService(): Promise<boolean> {
 
     if (!process.env.ARKHIA_API_KEY) {
       console.log(chalk.yellow('⚠️  ARKHIA_API_KEY not set, skipping Arkhia service test'))
+      console.log(chalk.gray('   Set ARKHIA_API_KEY in .env to test Arkhia integration'))
       return true // Skip test if API key not available
     }
+
+    // Note: Arkhia API endpoints may need adjustment based on actual API structure
+    // This test validates the service structure, not the actual API calls
 
     const service = new ArkhiaAnalyticsService({})
 
