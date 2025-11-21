@@ -12,7 +12,7 @@ loadEnvIfNeeded()
 export interface AgentMetadata {
   agentId: string
   agentName: string
-  agentType: 'analyzer' | 'verifier' | 'settlement'
+  agentType: 'analyzer' | 'verifier' | 'settlement' | 'trustscore-producer' | 'trustscore-consumer' | 'orchestrator'
   capabilities: string[]
   supportedMessageTypes: string[]
   topicId: string
@@ -127,6 +127,48 @@ export function initializeHCS10Agents(): void {
       capabilities: ['x402-payment', 'cross-chain-settlement', 'usdc-transfer'],
       supportedMessageTypes: ['verification_result', 'settlement_complete'],
       topicId: process.env.SETTLEMENT_TOPIC_ID,
+      status: 'active',
+      registrationTime: Date.now()
+    })
+  }
+
+  // TrustScore Producer Agent
+  if (process.env.PRODUCER_AGENT_ID && process.env.PRODUCER_TOPIC_ID) {
+    globalAgentRegistry.registerAgent({
+      agentId: process.env.PRODUCER_AGENT_ID,
+      agentName: 'TrustScoreProducerAgent',
+      agentType: 'trustscore-producer',
+      capabilities: ['trustscore', 'payment', 'negotiation', 'analytics'],
+      supportedMessageTypes: ['ap2_negotiation', 'trust_score_request', 'payment_verification'],
+      topicId: process.env.PRODUCER_TOPIC_ID,
+      status: 'active',
+      registrationTime: Date.now()
+    })
+  }
+
+  // TrustScore Consumer Agent
+  if (process.env.CONSUMER_AGENT_ID && process.env.CONSUMER_TOPIC_ID) {
+    globalAgentRegistry.registerAgent({
+      agentId: process.env.CONSUMER_AGENT_ID,
+      agentName: 'TrustScoreConsumerAgent',
+      agentType: 'trustscore-consumer',
+      capabilities: ['trustscore', 'payment', 'negotiation', 'product-discovery'],
+      supportedMessageTypes: ['ap2_negotiation', 'trust_score_request', 'product_discovery'],
+      topicId: process.env.CONSUMER_TOPIC_ID,
+      status: 'active',
+      registrationTime: Date.now()
+    })
+  }
+
+  // Mesh Orchestrator
+  if (process.env.ORCHESTRATOR_AGENT_ID && process.env.MESH_TOPIC_ID) {
+    globalAgentRegistry.registerAgent({
+      agentId: process.env.ORCHESTRATOR_AGENT_ID,
+      agentName: 'MeshOrchestrator',
+      agentType: 'orchestrator',
+      capabilities: ['orchestration', 'tasking', 'logging', 'a2a-channel-management'],
+      supportedMessageTypes: ['trust_score_event', 'task_issuance', 'agent_registration'],
+      topicId: process.env.MESH_TOPIC_ID,
       status: 'active',
       registrationTime: Date.now()
     })

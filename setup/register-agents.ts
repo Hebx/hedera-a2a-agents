@@ -80,7 +80,10 @@ async function registerAgents(): Promise<void> {
     const agents = [
       { name: 'AnalyzerAgent', prefix: 'ANALYZER' },
       { name: 'VerifierAgent', prefix: 'VERIFIER' },
-      { name: 'SettlementAgent', prefix: 'SETTLEMENT' }
+      { name: 'SettlementAgent', prefix: 'SETTLEMENT' },
+      { name: 'TrustScoreProducerAgent', prefix: 'PRODUCER' },
+      { name: 'TrustScoreConsumerAgent', prefix: 'CONSUMER' },
+      { name: 'MeshOrchestrator', prefix: 'ORCHESTRATOR' }
     ]
 
     const credentials: AgentCredentials[] = []
@@ -95,13 +98,31 @@ async function registerAgents(): Promise<void> {
         // Register agent via HCS10Client (this handles account creation, key generation, and topic setup)
         const hcs10Client = new HCS10Client(accountId, parsedPrivateKey.toString(), 'testnet')
         
+        // Define capabilities based on agent type
+        let capabilities: string[] = []
+        if (agent.name.includes('Analyzer')) {
+          capabilities = ['analyze', 'account-analysis', 'threshold-evaluation', 'proposal-generation']
+        } else if (agent.name.includes('Verifier')) {
+          capabilities = ['verify', 'proposal-validation', 'approval-decision', 'business-logic']
+        } else if (agent.name.includes('Settlement')) {
+          capabilities = ['settle', 'x402-payment', 'cross-chain-settlement', 'usdc-transfer']
+        } else if (agent.name.includes('Producer')) {
+          capabilities = ['trustscore', 'payment', 'negotiation', 'analytics', 'ap2']
+        } else if (agent.name.includes('Consumer')) {
+          capabilities = ['trustscore', 'payment', 'negotiation', 'product-discovery', 'ap2']
+        } else if (agent.name.includes('Orchestrator')) {
+          capabilities = ['orchestration', 'tasking', 'logging', 'a2a-channel-management']
+        } else {
+          capabilities = ['analyze', 'verify', 'settle']
+        }
+
         const agentMetadata = {
           name: agent.name,
           description: `${agent.name} for Hedron operations`,
           version: '1.0.0',
-          capabilities: ['analyze', 'verify', 'settle'],
+          capabilities: capabilities,
           properties: {
-            agentType: agent.name.toLowerCase().replace('agent', ''),
+            agentType: agent.name.toLowerCase().replace('agent', '').replace('orchestrator', 'orchestrator'),
             network: 'testnet',
             description: `${agent.name} for Hedron operations`
           },
@@ -162,11 +183,17 @@ async function registerAgents(): Promise<void> {
     // Write credentials to .env file
     console.log('\n📝 Writing credentials to .env file...')
     
-    const envContent = credentials.map(cred => 
-      `${cred.prefix}_AGENT_ID=${cred.agentId}\n` +
-      `${cred.prefix}_TOPIC_ID=${cred.topicId}\n` +
-      `${cred.prefix}_PRIVATE_KEY=${cred.privateKey}`
-    ).join('\n\n')
+    const envContent = credentials.map(cred => {
+      // For orchestrator, use MESH_TOPIC_ID instead of ORCHESTRATOR_TOPIC_ID
+      if (cred.prefix === 'ORCHESTRATOR') {
+        return `ORCHESTRATOR_AGENT_ID=${cred.agentId}\n` +
+               `MESH_TOPIC_ID=${cred.topicId}\n` +
+               `ORCHESTRATOR_PRIVATE_KEY=${cred.privateKey}`
+      }
+      return `${cred.prefix}_AGENT_ID=${cred.agentId}\n` +
+             `${cred.prefix}_TOPIC_ID=${cred.topicId}\n` +
+             `${cred.prefix}_PRIVATE_KEY=${cred.privateKey}`
+    }).join('\n\n')
 
     // Append to existing .env file or create new one
     const existingEnv = fs.existsSync('.env') ? fs.readFileSync('.env', 'utf8') : ''
