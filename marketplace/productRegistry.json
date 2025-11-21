@@ -1,0 +1,26 @@
+{
+  "products": [
+    {
+      "productId": "trustscore.basic.v1",
+      "version": "v1",
+      "name": "Basic Trust Score",
+      "description": "Comprehensive trust score for Hedera accounts based on on-chain analytics",
+      "producerAgentId": "",
+      "endpoint": "/trustscore/:accountId",
+      "defaultPrice": "0.3",
+      "currency": "HBAR",
+      "network": "hedera-testnet",
+      "rateLimit": {
+        "calls": 100,
+        "period": 86400
+      },
+      "sla": {
+        "uptime": "99.9%",
+        "responseTime": "< 2s"
+      },
+      "createdAt": 0,
+      "updatedAt": 0
+    }
+  ]
+}
+
