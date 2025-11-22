@@ -52,7 +52,7 @@ async function testX402PaymentFlow(): Promise<boolean> {
     producerInit: false,
     consumerInit: false,
     paymentRequired: false,
-    paymentAuthorization: boolean
+    paymentAuthorization: false,
     paymentVerification: false,
     paymentSettlement: false,
     trustScoreDelivery: false

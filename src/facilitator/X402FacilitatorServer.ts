@@ -43,6 +43,28 @@ export class X402FacilitatorServer {
     }
   }
 
+  /**
+   * Parse amount to tinybars for comparison
+   * Handles both HBAR format (e.g., "0.3") and tinybars format (e.g., "30000000")
+   */
+  private parseAmountToTinybars(amount: string, asset: string): bigint {
+    if (asset !== 'HBAR') {
+      // For non-HBAR assets, assume amount is already in smallest unit
+      return BigInt(amount)
+    }
+
+    const numAmount = parseFloat(amount)
+    
+    // If amount is very large (> 1000), assume it's already in tinybars
+    // Otherwise, assume it's in HBAR format and convert
+    if (numAmount > 1000) {
+      return BigInt(Math.floor(numAmount))
+    }
+    
+    // Convert HBAR to tinybars (1 HBAR = 100,000,000 tinybars)
+    return BigInt(Math.floor(numAmount * 100_000_000))
+  }
+
   // POST /verify endpoint
   async verify(paymentHeader: string, paymentRequirements: any): Promise<any> {
     try {
@@ -98,9 +120,16 @@ export class X402FacilitatorServer {
         return false
       }
 
-      // Check amount matches
-      if (authorization.value !== requirements.maxAmountRequired) {
-        console.log(chalk.red('❌ Amount mismatch'))
+      // Check amount matches (handle both HBAR and tinybars formats)
+      const authValue = authorization.value
+      const reqAmount = requirements.maxAmountRequired
+      
+      // Convert both to tinybars for comparison
+      const authTinybars = this.parseAmountToTinybars(authValue, requirements.asset)
+      const reqTinybars = this.parseAmountToTinybars(reqAmount, requirements.asset)
+      
+      if (authTinybars !== reqTinybars) {
+        console.log(chalk.red(`❌ Amount mismatch: ${authValue} (${authTinybars} tinybars) vs ${reqAmount} (${reqTinybars} tinybars)`))
         return false
       }
 
@@ -188,8 +217,12 @@ export class X402FacilitatorServer {
       }
 
       // Parse amounts
-      const tinybarAmount = BigInt(authorization.value)
-      const hbarAmount = Number(tinybarAmount) / 100_000_000
+      // authorization.value is in HBAR (e.g., "0.3"), convert to tinybars
+      const hbarAmount = parseFloat(authorization.value)
+      if (isNaN(hbarAmount) || hbarAmount <= 0) {
+        throw new Error(`Invalid payment amount: ${authorization.value}`)
+      }
+      const tinybarAmount = BigInt(Math.floor(hbarAmount * 100_000_000))
       const recipientId = AccountId.fromString(authorization.to)
 
       console.log(chalk.blue(`📋 Transfer amount: ${hbarAmount} HBAR (${tinybarAmount.toString()} tinybars)`))

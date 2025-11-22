@@ -127,7 +127,7 @@ export class TrustScoreProducerAgent {
           description: 'Standard trust score computation for Hedera accounts',
           producerAgentId: this.agentId,
           endpoint: '/trustscore/:accountId',
-          defaultPrice: process.env.TRUST_SCORE_PRICE || '30000', // tinybars
+          defaultPrice: process.env.TRUST_SCORE_PRICE || '0.3', // HBAR format
           currency: 'HBAR',
           network: 'hedera-testnet',
           rateLimit: {

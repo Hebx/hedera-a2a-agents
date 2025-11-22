@@ -36,9 +36,10 @@ export class TrustScoreRoute {
     this.computationEngine = computationEngine
     this.productRegistry = productRegistry
     
-    // Default price: 0.3 HBAR = 30,000,000 tinybars
-    // For testing, use tiny amount: 0.0003 HBAR = 30,000 tinybars
-    this.defaultPrice = process.env.TRUST_SCORE_PRICE || '30000' // tinybars
+    // Default price: 0.3 HBAR (for testing, use small amount like 0.0003 HBAR)
+    // Get from product registry if available, otherwise use env or default
+    const defaultProduct = this.productRegistry.getProduct('trustscore.basic.v1')
+    this.defaultPrice = process.env.TRUST_SCORE_PRICE || defaultProduct?.defaultPrice || '0.3' // HBAR format
   }
 
   /**
@@ -167,12 +168,16 @@ export class TrustScoreRoute {
       throw new Error('HEDERA_ACCOUNT_ID environment variable is required')
     }
 
+    // Get price from product registry (preferred) or use default
+    const defaultProduct = this.productRegistry.getProduct('trustscore.basic.v1')
+    const price = defaultProduct?.defaultPrice || process.env.TRUST_SCORE_PRICE || '0.3' // HBAR format
+
     return {
       scheme: 'exact',
       network: 'hedera-testnet',
       asset: 'HBAR',
       payTo: hederaAccountId,
-      maxAmountRequired: this.defaultPrice, // tinybars
+      maxAmountRequired: price, // HBAR format (e.g., "0.3")
       resource: `/trustscore/${accountId}`,
       description: `Trust score for account ${accountId}`,
       mimeType: 'application/json',
