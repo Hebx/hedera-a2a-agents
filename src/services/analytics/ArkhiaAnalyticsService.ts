@@ -248,17 +248,27 @@ export class ArkhiaAnalyticsService {
         params.topic_ids = topicIds.join(',')
       }
 
-      const response = await this.client.get(`/hedera/${this.config.network}/api/v1/accounts/${accountId}/messages`, {
-        params
-      })
+      try {
+        const response = await this.client.get(`/hedera/${this.config.network}/api/v1/accounts/${accountId}/messages`, {
+          params
+        })
 
-      const messages = response.data.messages || response.data as HCSMessage[]
-      
-      // Store in cache
-      this.setCache(cacheKey, messages)
-      
-      console.log(chalk.green(`✅ Retrieved HCS messages for ${accountId}`))
-      return Array.isArray(messages) ? messages : [messages]
+        const messages = response.data.messages || response.data as HCSMessage[]
+        
+        // Store in cache
+        this.setCache(cacheKey, messages)
+        
+        console.log(chalk.green(`✅ Retrieved ${Array.isArray(messages) ? messages.length : 1} HCS messages for ${accountId}`))
+        return Array.isArray(messages) ? messages : [messages]
+      } catch (error: any) {
+        // HCS messages endpoint may not exist or account may not have messages
+        // This is not critical - return empty array instead of failing
+        if (error.response?.status === 404) {
+          console.log(chalk.yellow(`⚠️  HCS messages endpoint not available for ${accountId}, returning empty array`))
+          return []
+        }
+        throw error
+      }
     })
   }
 

@@ -372,8 +372,10 @@ export class TrustScoreConsumerAgent {
         transactionHash: paymentResult.txHash
       })
 
-      console.log(chalk.green(`✅ Payment successful: ${paymentResult.txHash}`))
+      const transactionId = paymentResult.txHash
+      console.log(chalk.green(`✅ Payment successful: ${transactionId}`))
       console.log(chalk.gray(`   Network: ${paymentResult.networkId}`))
+      console.log(chalk.cyan(`🔗 HashScan: https://hashscan.io/testnet/transaction/${transactionId}`))
       return paymentHeader
     } catch (error) {
       console.error(chalk.red(`❌ Payment failed:`), error)
@@ -385,7 +387,9 @@ export class TrustScoreConsumerAgent {
    * Create payment requirements from offer
    */
   private createPaymentRequirements(accountId: string, offer: AP2Offer): PaymentRequirements {
-    const hederaAccountId = process.env.HEDERA_ACCOUNT_ID
+    // Use Consumer Agent ID (this.agentId) instead of HEDERA_ACCOUNT_ID
+    // This ensures payments are sent from the Consumer account, not the main account
+    const hederaAccountId = this.agentId || process.env.HEDERA_ACCOUNT_ID
     if (!hederaAccountId) {
       throw new Error('HEDERA_ACCOUNT_ID environment variable is required')
     }

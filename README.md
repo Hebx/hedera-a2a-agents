@@ -19,7 +19,13 @@
 ✅ **Payment-Gated API** - x402 micropayment standard for frictionless access  
 ✅ **Real-Time Analytics** - Arkhia API integration for live Hedera on-chain data  
 ✅ **Immutable Audit Trail** - HCS-10 event logging for all transactions  
-✅ **Production-Ready** - Comprehensive error handling, retry logic, and testing
+✅ **Separate Account Support** - Producer and Consumer agents use independent accounts  
+✅ **HashScan Integration** - Direct links to on-chain transactions for verification  
+✅ **CLI Interface** - Easy-to-use command-line tool for requesting trust scores  
+✅ **LLM-Powered CLI** - Natural language support for trust score queries (OpenAI)  
+✅ **Production-Ready** - Comprehensive error handling, retry logic, and testing  
+✅ **Property-Based Testing** - 57 property tests ensuring correctness across edge cases  
+✅ **Complete Test Coverage** - Unit, integration, and E2E tests
 
 ---
 
@@ -140,49 +146,105 @@ This script automatically:
 - Creates HCS topics for each agent
 - Writes all credentials to your `.env` file
 
+### Setup Separate Accounts (Optional)
+
+For production use, configure separate accounts for Producer and Consumer agents:
+
+```env
+# Consumer Agent (Buyer) - Pays for trust scores
+CONSUMER_AGENT_ID=0.0.YOUR_BUYER_ACCOUNT
+CONSUMER_PRIVATE_KEY=your_consumer_private_key
+
+# Producer Agent (Seller) - Receives payments for trust scores
+PRODUCER_AGENT_ID=0.0.YOUR_SELLER_ACCOUNT
+PRODUCER_PRIVATE_KEY=your_producer_private_key
+```
+
+Register HCS-11 profiles for both accounts:
+
+```bash
+# For Consumer
+HEDERA_ACCOUNT_ID=$CONSUMER_AGENT_ID HEDERA_PRIVATE_KEY=$CONSUMER_PRIVATE_KEY npm run setup:trustscore-profile
+
+# For Producer
+HEDERA_ACCOUNT_ID=$PRODUCER_AGENT_ID HEDERA_PRIVATE_KEY=$PRODUCER_PRIVATE_KEY npm run setup:trustscore-profile
+```
+
 ### Run the Demo
 
 ```bash
-# Start the Producer Agent (API server)
+# Option 1: Run complete demo (starts Producer and Consumer)
 npm run demo:trustscore-oracle
+
+# Option 2: Use CLI commands (recommended for production)
+# Terminal 1: Start Producer Agent
+npm run producer:start
+
+# Terminal 2: Request trust score via CLI
+npm run trustscore 0.0.1234567
+
+# Or use natural language (requires OpenAI API key)
+npm run trustscore "give me trust score of 0.0.1234567"
 ```
 
 The Producer Agent will:
 
 - Start an Express server on port 3001
 - Register the trust score product
-- Listen for trust score requests
+- Listen for trust score requests with x402 payment-gated access
 
-In another terminal, use the Consumer Agent:
+The CLI will:
+
+- Discover available products
+- Negotiate price via AP2 protocol
+- Pay via x402 facilitator
+- Request and display trust score
+- Show HashScan links to on-chain transactions
+
+### Programmatic Usage
 
 ```typescript
 import { TrustScoreConsumerAgent } from "./src/agents/TrustScoreConsumerAgent";
-import { X402FacilitatorServer } from "./src/facilitator/X402FacilitatorServer";
-import { ProductRegistry } from "./src/marketplace/ProductRegistry";
 
-// Initialize components
-const facilitator = new X402FacilitatorServer();
-const productRegistry = new ProductRegistry();
-const consumer = new TrustScoreConsumerAgent(
-  process.env.CONSUMER_AGENT_ID!,
-  facilitator,
-  productRegistry,
-  "http://localhost:3001"
-);
-
+// Consumer Agent uses CONSUMER_AGENT_ID from .env automatically
+const consumer = new TrustScoreConsumerAgent();
 await consumer.init();
 
 // Request trust score for an account
-const trustScore = await consumer.requestTrustScore("0.0.1234567");
+const trustScore = await consumer.requestTrustScore(
+  "0.0.1234567",
+  "trustscore.basic.v1",
+  "http://localhost:3001"
+);
 
 if (trustScore) {
-  console.log(`Trust Score: ${trustScore.overallScore}/100`);
+  console.log(`Trust Score: ${trustScore.score}/100`);
   console.log("Components:", trustScore.components);
   console.log("Risk Flags:", trustScore.riskFlags);
 }
 ```
 
 ---
+
+## 🔗 HashScan Integration
+
+All on-chain transactions are automatically linked to HashScan for verification:
+
+- **Account Links**: Direct links to Consumer and Producer accounts
+- **Transaction Links**: Links to payment transactions when trust scores are requested
+- **Audit Trail**: All transactions visible on Hedera testnet explorer
+
+Example output:
+```
+✅ Payment successful: 0.0.7132337@1763787357.950112919
+   Network: hedera-testnet
+🔗 HashScan: https://hashscan.io/testnet/transaction/0.0.7132337@1763787357.950112919
+
+🔗 On-Chain Transaction Links
+──────────────────────────────────────────────────
+   Producer Account: https://hashscan.io/testnet/account/0.0.7136519
+   Consumer Account: https://hashscan.io/testnet/account/0.0.7304745
+```
 
 ## 💡 Real-World Use Cases
 

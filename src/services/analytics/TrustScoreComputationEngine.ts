@@ -231,6 +231,21 @@ export class TrustScoreComputationEngine {
   }
 
   /**
+   * Known Trusted Topics (e.g. Hedera Consensus Service, official oracles)
+   */
+  private readonly TRUSTED_TOPICS = [
+    '0.0.7132813', // Generic analyzer topic
+    '0.0.1234567', // Placeholder for official oracle
+  ]
+
+  /**
+   * Known Suspicious Topics (e.g. flagged for spam or scams)
+   */
+  private readonly SUSPICIOUS_TOPICS = [
+    '0.0.666666', // Placeholder for known malicious topic
+  ]
+
+  /**
    * Calculate HCS interaction quality score
    * 
    * Scoring:
@@ -246,24 +261,43 @@ export class TrustScoreComputationEngine {
       return 0 // No HCS interactions
     }
 
-    // TODO: Implement trusted/suspicious topic detection
-    // For MVP, we'll use a simple heuristic:
-    // - Check if messages contain known trusted patterns
-    // - Check if messages contain known suspicious patterns
-    
-    // Placeholder: For now, return neutral score
-    // In production, this would check against a registry of trusted/suspicious topics
+    // Check against topic registries first
+    const hasTrustedTopicInteraction = hcsMessages.some(msg => 
+      this.TRUSTED_TOPICS.includes(msg.topic_id)
+    )
+
+    const hasSuspiciousTopicInteraction = hcsMessages.some(msg =>
+      this.SUSPICIOUS_TOPICS.includes(msg.topic_id)
+    )
+
+    if (hasTrustedTopicInteraction && !hasSuspiciousTopicInteraction) {
+      return 10
+    } else if (hasSuspiciousTopicInteraction) {
+      return -10
+    }
+
+    // Fallback: Content pattern matching
+    // Check if messages contain known trusted patterns (e.g. verified signatures)
     const hasTrustedPatterns = hcsMessages.some(msg => 
-      msg.message && (msg.message.includes('trusted') || msg.message.includes('verified'))
+      msg.message && (
+        msg.message.includes('"verified":true') || 
+        msg.message.includes('TRUSTED_SOURCE') ||
+        msg.message.includes('DID:HEDERA')
+      )
     )
     
+    // Check if messages contain known suspicious patterns (e.g. phishing links)
     const hasSuspiciousPatterns = hcsMessages.some(msg =>
-      msg.message && (msg.message.includes('suspicious') || msg.message.includes('malicious'))
+      msg.message && (
+        msg.message.includes('URGENT_ACTION') || 
+        msg.message.includes('verify_wallet') ||
+        msg.message.toLowerCase().includes('giveaway')
+      )
     )
 
     if (hasTrustedPatterns && !hasSuspiciousPatterns) {
       return 10
-    } else if (hasSuspiciousPatterns && !hasTrustedPatterns) {
+    } else if (hasSuspiciousPatterns) {
       return -10
     } else {
       return 0

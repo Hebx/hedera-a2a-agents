@@ -40,7 +40,7 @@ async function registerAgents(): Promise<void> {
       console.log(`❌ Failed to parse as DER encoded: ${error}`)
       try {
         // Try parsing as raw hex
-        parsedPrivateKey = PrivateKey.fromStringEd25519(privateKey)
+        parsedPrivateKey = PrivateKey.fromStringED25519(privateKey)
         console.log(`✅ Successfully parsed private key as raw hex`)
       } catch (error2) {
         console.log(`❌ Failed to parse as raw hex: ${error2}`)
@@ -127,7 +127,7 @@ async function registerAgents(): Promise<void> {
             description: `${agent.name} for Hedron operations`
           },
           bio: `${agent.name} - A specialized agent for Hedron operations`,
-          type: 'autonomous',
+          type: 'autonomous' as const,
           model: 'agent-model-2024'
         }
         
@@ -221,7 +221,7 @@ async function registerAgents(): Promise<void> {
 }
 
 // Run the registration process
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (require.main === module) {
   registerAgents()
     .then(() => {
       console.log('✅ Registration process completed successfully')

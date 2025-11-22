@@ -103,27 +103,52 @@ export class TrustScoreRoute {
       console.log(chalk.blue(`📊 Computing trust score for ${accountId}...`))
 
       try {
-        // Fetch data from Arkhia
-        const accountInfo = await this.arkhiaService.getAccountInfo(accountId)
-        const transactions = await this.arkhiaService.getTransactions(accountId, 100)
-        const tokenBalances = await this.arkhiaService.getTokenBalances(accountId)
-        const hcsMessages = await this.arkhiaService.getHCSMessages(accountId)
+        // Fetch data from Arkhia (HCS messages are optional - will return empty array if not available)
+        console.log(chalk.blue(`📡 Fetching analytics data for ${accountId}...`))
+        
+        const [accountInfo, transactions, tokenBalances, hcsMessages] = await Promise.allSettled([
+          this.arkhiaService.getAccountInfo(accountId),
+          this.arkhiaService.getTransactions(accountId, 100),
+          this.arkhiaService.getTokenBalances(accountId),
+          this.arkhiaService.getHCSMessages(accountId).catch(() => []) // Return empty array if HCS messages fail
+        ])
+
+        // Extract successful results or throw errors for critical failures
+        if (accountInfo.status === 'rejected') {
+          throw new Error(`Failed to fetch account info: ${accountInfo.reason}`)
+        }
+        if (transactions.status === 'rejected') {
+          throw new Error(`Failed to fetch transactions: ${transactions.reason}`)
+        }
+        if (tokenBalances.status === 'rejected') {
+          throw new Error(`Failed to fetch token balances: ${tokenBalances.reason}`)
+        }
+
+        const account = accountInfo.value
+        const txs = transactions.value || []
+        const tokens = tokenBalances.value || []
+        const hcs = hcsMessages.status === 'fulfilled' ? hcsMessages.value : []
+
+        console.log(chalk.green(`✅ Fetched: ${txs.length} transactions, ${tokens.length} tokens, ${hcs.length} HCS messages`))
 
         // Compute trust score
         const trustScore = await this.computationEngine.computeScore(
-          accountInfo,
-          transactions,
-          tokenBalances,
-          hcsMessages
+          account,
+          txs,
+          tokens,
+          hcs
         )
 
         // Return trust score with payment receipt
+        // TrustScore type: account, score, components, riskFlags, timestamp
         res.status(200).json({
           account: trustScore.account,
           score: trustScore.score,
+          overallScore: trustScore.score, // Alias for backward compatibility
           components: trustScore.components,
           riskFlags: trustScore.riskFlags,
           timestamp: trustScore.timestamp,
+          computedAt: trustScore.timestamp, // Alias for convenience
           payment: {
             verified: true,
             amount: this.defaultPrice,

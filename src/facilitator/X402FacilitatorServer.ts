@@ -246,11 +246,14 @@ export class X402FacilitatorServer {
       const response = await transfer.execute(this.hederaClient)
       const receipt = await response.getReceipt(this.hederaClient)
       
+      const transactionId = response.transactionId.toString()
+      
       console.log(chalk.green(`✅ Transfer confirmed with status: ${receipt.status}`))
-      console.log(chalk.blue(`📋 Transaction ID: ${response.transactionId.toString()}`))
+      console.log(chalk.blue(`📋 Transaction ID: ${transactionId}`))
+      console.log(chalk.cyan(`🔗 HashScan: https://hashscan.io/testnet/transaction/${transactionId}`))
       
       // Return transaction ID as string
-      return response.transactionId.toString()
+      return transactionId
     } catch (error) {
       console.error('❌ Hedera transfer error:', error)
       return null

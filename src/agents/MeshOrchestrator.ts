@@ -15,6 +15,7 @@ import { TrustScoreProducerAgent } from './TrustScoreProducerAgent'
 import { TrustScoreConsumerAgent } from './TrustScoreConsumerAgent'
 import { loadEnvIfNeeded } from '../utils/env'
 import chalk from 'chalk'
+import axios from 'axios'
 
 // Load environment variables
 loadEnvIfNeeded()
@@ -211,30 +212,71 @@ export class MeshOrchestrator {
    * Verify on-chain payment transaction
    */
   async verifyPaymentReceipt(
-    transactionHash: string,
+    transactionIdOrHash: string,
     expectedAmount: string,
     expectedRecipient: string
   ): Promise<boolean> {
     try {
-      console.log(chalk.blue(`🔍 Verifying payment receipt: ${transactionHash}`))
+      console.log(chalk.blue(`🔍 Verifying payment receipt: ${transactionIdOrHash}`))
 
-      // In a real implementation, this would query the Hedera network
-      // to verify the transaction exists and matches expected parameters
-      // For now, we'll do a basic validation
-
-      if (!transactionHash || transactionHash.length < 10) {
+      if (!transactionIdOrHash || transactionIdOrHash.length < 5) {
         return false
       }
 
-      // TODO: Implement actual on-chain verification
-      // This would involve:
-      // 1. Query transaction by hash
-      // 2. Verify amount matches
-      // 3. Verify recipient matches
-      // 4. Verify transaction status is SUCCESS
+      // Use Hedera Mirror Node to verify transaction
+      // Try testnet mirror node first
+      const mirrorNodeUrl = 'https://testnet.mirrornode.hedera.com'
+      
+      try {
+        // The input could be a Transaction ID (0.0.x@s.n) or a Hash
+        // Mirror node accepts both in /api/v1/transactions/{idOrHash}
+        const response = await axios.get(`${mirrorNodeUrl}/api/v1/transactions/${transactionIdOrHash}`)
+        
+        const transaction = response.data.transactions?.[0]
+        
+        if (!transaction) {
+          console.warn(chalk.yellow(`⚠️ Transaction not found on mirror node: ${transactionIdOrHash}`))
+          return false
+        }
 
-      console.log(chalk.green(`✅ Payment receipt verified: ${transactionHash}`))
-      return true
+        // 1. Verify status
+        if (transaction.result !== 'SUCCESS') {
+          console.warn(chalk.yellow(`⚠️ Transaction status is not SUCCESS: ${transaction.result}`))
+          return false
+        }
+
+        // 2. Verify recipient and amount
+        // Transfers are in transaction.transfers array
+        const transfers = transaction.transfers || []
+        
+        // Find transfer to expected recipient
+        // expectedAmount is in tinybars (or smallest unit)
+        // transfers array items have: account, amount
+        
+        const recipientTransfer = transfers.find((t: any) => t.account === expectedRecipient && t.amount > 0)
+        
+        if (!recipientTransfer) {
+          console.warn(chalk.yellow(`⚠️ No transfer found to recipient ${expectedRecipient}`))
+          return false
+        }
+
+        // Check amount (allow for small float differences if string parsing)
+        // But HBAR amounts are integers (tinybars)
+        if (recipientTransfer.amount.toString() !== expectedAmount) {
+          console.warn(chalk.yellow(`⚠️ Amount mismatch. Expected: ${expectedAmount}, Found: ${recipientTransfer.amount}`))
+          return false
+        }
+
+        console.log(chalk.green(`✅ Payment receipt verified on-chain: ${transactionIdOrHash}`))
+        return true
+        
+      } catch (error: any) {
+        if (error.response?.status === 404) {
+          console.warn(chalk.yellow(`⚠️ Transaction not found: ${transactionIdOrHash}`))
+          return false
+        }
+        throw error
+      }
     } catch (error) {
       console.error(chalk.red(`❌ Payment verification failed:`), error)
       return false

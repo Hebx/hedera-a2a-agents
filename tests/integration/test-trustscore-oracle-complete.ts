@@ -19,6 +19,7 @@ import { MeshOrchestrator } from '../../src/agents/MeshOrchestrator'
 import { globalErrorHandler, ErrorCategory, ErrorSeverity } from '../../src/utils/ErrorHandler'
 import { AP2TrustScoreNegotiation } from '../../src/protocols/AP2Protocol'
 import { loadEnvIfNeeded } from '../../src/utils/env'
+import axios from 'axios'
 import chalk from 'chalk'
 
 // Load environment variables
@@ -231,10 +232,24 @@ async function testCompleteWorkflow(): Promise<boolean> {
 
     // Test 9: Payment Flow (if producer server is running)
     console.log(chalk.blue('Test 9: Payment Flow'))
-    if (consumer) {
+    if (consumer && producer) {
       try {
+        // Wait for producer server to be ready
+        console.log(chalk.blue(`⏳ Waiting for producer server at ${PRODUCER_ENDPOINT}...`))
+        await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2 seconds for server to be ready
+        
+        // Check if server is responding
+        try {
+          const healthCheck = await axios.get(`${PRODUCER_ENDPOINT}/health`, { timeout: 5000 })
+          if (healthCheck.status === 200) {
+            console.log(chalk.green('✅ Producer server is ready'))
+          }
+        } catch (healthError) {
+          console.log(chalk.yellow('⚠️  Health check failed, but continuing...'))
+        }
+
         // This will attempt to request a trust score, which triggers payment flow
-        // Note: This requires the producer server to be running
+        // Real end-to-end test with actual payment and trust score computation
         const score = await consumer.requestTrustScore(
           TEST_ACCOUNT_ID,
           'trustscore.basic.v1',
@@ -250,14 +265,25 @@ async function testCompleteWorkflow(): Promise<boolean> {
           console.log(chalk.gray(`   Components: ${Object.keys(score.components).length}`))
           console.log(chalk.gray(`   Risk Flags: ${score.riskFlags.length}`))
         } else {
-          console.log(chalk.yellow('⚠️  Trust score request returned null (producer server may not be running)'))
+          console.log(chalk.red('❌ Trust score request returned null'))
+          console.log(chalk.yellow('⚠️  Payment flow test failed - no trust score returned'))
         }
-      } catch (error) {
-        const errorMessage = (error as Error).message
-        if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('fetch failed')) {
-          console.log(chalk.yellow('⚠️  Producer server not running. Payment flow test skipped.'))
+      } catch (error: any) {
+        const errorMessage = error.message || String(error)
+        if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('fetch failed') || errorMessage.includes('Network Error')) {
+          console.log(chalk.yellow('⚠️  Producer server not accessible. Payment flow test skipped.'))
+          console.log(chalk.gray(`   Error: ${errorMessage}`))
+        } else if (errorMessage.includes('503') || errorMessage.includes('SERVICE_UNAVAILABLE')) {
+          console.log(chalk.red('❌ Trust score computation service unavailable'))
+          console.log(chalk.gray(`   Error: ${errorMessage}`))
+          console.log(chalk.yellow('⚠️  Payment flow test failed - service unavailable'))
+        } else if (errorMessage.includes('404')) {
+          console.log(chalk.red('❌ Trust score endpoint not found (404)'))
+          console.log(chalk.gray(`   Error: ${errorMessage}`))
+          console.log(chalk.yellow('⚠️  Payment flow test failed - endpoint not found'))
         } else {
-          console.log(chalk.yellow(`⚠️  Payment flow test error: ${errorMessage}`))
+          console.log(chalk.red(`❌ Payment flow test error: ${errorMessage}`))
+          console.log(chalk.gray(`   Full error: ${error.stack || error}`))
         }
       }
       console.log('')
