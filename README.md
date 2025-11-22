@@ -444,6 +444,7 @@ npm run test:property
 
 ## 📚 Documentation
 
+- **[Video Demo](https://www.loom.com/share/427767e536b04c7bbcd69571c6de33e0)** - Watch the complete workflow in action
 - **[User Guide](./docs/TRUSTSCORE_ORACLE_USER_GUIDE.md)** - Complete setup and usage guide
 - **[API Reference](./docs/TRUSTSCORE_ORACLE_API.md)** - Full API documentation
 - **[Setup Guide](./docs/TRUSTSCORE_SETUP_GUIDE.md)** - Step-by-step setup instructions
@@ -493,6 +494,10 @@ npm run test:property
 ## 🎬 Live Demo
 
 Watch the complete workflow in action:
+
+**📹 Video Demonstration**: [Watch on Loom](https://www.loom.com/share/427767e536b04c7bbcd69571c6de33e0)
+
+Or run it locally:
 
 1. **Start Producer Agent**
 
