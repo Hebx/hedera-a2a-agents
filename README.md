@@ -235,6 +235,7 @@ All on-chain transactions are automatically linked to HashScan for verification:
 - **Audit Trail**: All transactions visible on Hedera testnet explorer
 
 Example output:
+
 ```
 ✅ Payment successful: 0.0.7132337@1763787357.950112919
    Network: hedera-testnet
@@ -443,17 +444,12 @@ npm run test:property
 
 ## 📚 Documentation
 
-### Core Documentation
-
 - **[User Guide](./docs/TRUSTSCORE_ORACLE_USER_GUIDE.md)** - Complete setup and usage guide
 - **[API Reference](./docs/TRUSTSCORE_ORACLE_API.md)** - Full API documentation
-- **[Video Pitch Plan](./docs/TRUSTSCORE_ORACLE_VIDEO_PITCH.md)** - Demo script and presentation guide
-- **[Verification Report](./docs/TRUSTSCORE_VERIFICATION_REPORT.md)** - Technical verification and testing
-
-### Implementation Details
-
+- **[Setup Guide](./docs/TRUSTSCORE_SETUP_GUIDE.md)** - Step-by-step setup instructions
+- **[Separate Accounts Setup](./docs/TRUSTSCORE_SEPARATE_ACCOUNTS_SETUP.md)** - Configure separate Producer/Consumer accounts
 - **[PRD](./prd.md)** - Product requirements document
-- **[Implementation Summary](./docs/TRUSTSCORE_IMPLEMENTATION_SUMMARY.md)** - Development progress
+- **[Pitch Deck](https://www.canva.com/design/DAG5YwTXZus/evHUkcrcd0SLSVmcqoUKOQ/edit?utm_content=DAG5YwTXZus&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)** - Project presentation and overview
 
 ---
 
@@ -517,7 +513,7 @@ Watch the complete workflow in action:
    - Risk flag detection
    - Payment verification
 
-See [Video Pitch Plan](./docs/TRUSTSCORE_ORACLE_VIDEO_PITCH.md) for complete demo script.
+See [User Guide](./docs/TRUSTSCORE_ORACLE_USER_GUIDE.md) for complete usage instructions.
 
 ---
 
@@ -551,7 +547,8 @@ hedron/
 └── docs/
     ├── TRUSTSCORE_ORACLE_USER_GUIDE.md
     ├── TRUSTSCORE_ORACLE_API.md
-    └── TRUSTSCORE_ORACLE_VIDEO_PITCH.md
+    ├── TRUSTSCORE_SETUP_GUIDE.md
+    └── TRUSTSCORE_SEPARATE_ACCOUNTS_SETUP.md
 ```
 
 ---
