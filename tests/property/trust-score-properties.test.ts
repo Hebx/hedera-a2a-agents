@@ -292,6 +292,99 @@ async function testProperty9() {
     console.log(chalk.green(`✅ Property 9 passed: All ${PROPERTY_TEST_CONFIG.numRuns} iterations valid`))
 }
 
+async function testProperty10() {
+  console.log(chalk.blue('Testing Property 10: Token Health Scoring'))
+  console.log(chalk.gray(`Running ${PROPERTY_TEST_CONFIG.numRuns} iterations...`))
+
+  const engine = new TrustScoreComputationEngine()
+
+  fc.assert(
+    fc.property(
+      fc.array(
+        fc.record({
+          token_id: fc.string({ minLength: 5, maxLength: 50 }),
+          balance: fc.integer({ min: 0, max: 1000000000 }),
+          decimals: fc.integer({ min: 0, max: 8 })
+        }),
+        { minLength: 0, maxLength: 10 }
+      ),
+      (tokenBalances) => {
+        const score = (engine as any).calculateTokenHealthScore(tokenBalances)
+        const hasValidScore = score === 0 || score === 10
+        const noTokensScore = tokenBalances.length === 0 ? score === 0 : true
+
+        if (tokenBalances.length > 0) {
+          const totalValue = tokenBalances.reduce((sum, token) => sum + Math.abs(token.balance || 0), 0)
+          if (totalValue > 0) {
+            let hasConcentration = false
+            for (const token of tokenBalances) {
+              const percentage = Math.abs(token.balance || 0) / totalValue
+              if (percentage > 0.5) {
+                hasConcentration = true
+                break
+              }
+            }
+            const distributionScore = hasConcentration ? score === 0 : score === 10
+            return hasValidScore && noTokensScore && distributionScore
+          }
+        }
+        return hasValidScore && noTokensScore
+      }
+    ),
+    { numRuns: PROPERTY_TEST_CONFIG.numRuns, seed: PROPERTY_TEST_CONFIG.seed, endOnFailure: PROPERTY_TEST_CONFIG.endOnFailure }
+  )
+  console.log(chalk.green(`✅ Property 10 passed: All ${PROPERTY_TEST_CONFIG.numRuns} iterations valid`))
+}
+
+async function testProperty11() {
+  console.log(chalk.blue('Testing Property 11: HCS Interaction Quality Scoring'))
+  console.log(chalk.gray(`Running ${PROPERTY_TEST_CONFIG.numRuns} iterations...`))
+
+  const engine = new TrustScoreComputationEngine()
+  const trustedTopics = ['0.0.7132813', '0.0.1234567']
+  const suspiciousTopics = ['0.0.666666']
+
+  fc.assert(
+    fc.property(
+      fc.array(
+        fc.record({
+          consensus_timestamp: fc.date({ min: new Date('2020-01-01'), max: new Date() }).map(d => d.toISOString()),
+          topic_id: fc.oneof(
+            fc.constantFrom(...trustedTopics),
+            fc.constantFrom(...suspiciousTopics),
+            fc.string({ minLength: 5, maxLength: 50 })
+          ),
+          message: fc.string({ minLength: 0, maxLength: 100 })
+        }),
+        { minLength: 0, maxLength: 20 }
+      ),
+      (hcsMessages) => {
+        const score = (engine as any).calculateHCSQualityScore(hcsMessages)
+        const hasValidScore = score >= -10 && score <= 10
+        const noMessagesScore = hcsMessages.length === 0 ? score === 0 : true
+
+        if (hcsMessages.length > 0) {
+          const hasTrustedInteraction = hcsMessages.some(msg => trustedTopics.includes(msg.topic_id))
+          const hasSuspiciousInteraction = hcsMessages.some(msg => suspiciousTopics.includes(msg.topic_id))
+          let expectedScore = 0
+          if (hasTrustedInteraction && !hasSuspiciousInteraction) {
+            expectedScore = 10
+          } else if (hasSuspiciousInteraction) {
+            expectedScore = -10
+          } else {
+            expectedScore = 0
+          }
+          const scoreMatchesExpected = score === expectedScore || score === 0
+          return hasValidScore && noMessagesScore && scoreMatchesExpected
+        }
+        return hasValidScore && noMessagesScore
+      }
+    ),
+    { numRuns: PROPERTY_TEST_CONFIG.numRuns, seed: PROPERTY_TEST_CONFIG.seed, endOnFailure: PROPERTY_TEST_CONFIG.endOnFailure }
+  )
+  console.log(chalk.green(`✅ Property 11 passed: All ${PROPERTY_TEST_CONFIG.numRuns} iterations valid`))
+}
+
 // Main test runner
 async function runAllPropertyTests() {
   console.log(chalk.bold('🧪 Running Trust Score Property-Based Tests'))
@@ -311,6 +404,10 @@ async function runAllPropertyTests() {
     await testProperty8()
     console.log('')
     await testProperty9()
+    console.log('')
+    await testProperty10()
+    console.log('')
+    await testProperty11()
     console.log('')
     console.log(chalk.green('🎉 All property tests passed!'))
   } catch (error) {
