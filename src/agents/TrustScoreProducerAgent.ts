@@ -86,12 +86,13 @@ export class TrustScoreProducerAgent {
     this.app = express()
     this.app.use(express.json())
 
-    // Initialize route handler
+    // Initialize route handler (pass producer's account ID)
     this.trustScoreRoute = new TrustScoreRoute(
       this.facilitator,
       this.arkhiaService,
       this.computationEngine,
-      this.productRegistry
+      this.productRegistry,
+      this.agentId // Pass producer's account ID for payment requirements
     )
 
     // Register route

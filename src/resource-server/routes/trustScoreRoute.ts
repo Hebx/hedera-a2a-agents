@@ -24,17 +24,25 @@ export class TrustScoreRoute {
   private computationEngine: TrustScoreComputationEngine
   private productRegistry: ProductRegistry
   private defaultPrice: string // in HBAR (tinybars)
+  private producerAccountId: string // Producer's Hedera account ID for receiving payments
 
   constructor(
     facilitator: X402FacilitatorServer,
     arkhiaService: ArkhiaAnalyticsService,
     computationEngine: TrustScoreComputationEngine,
-    productRegistry: ProductRegistry
+    productRegistry: ProductRegistry,
+    producerAccountId?: string // Optional: Producer's account ID (defaults to env var)
   ) {
     this.facilitator = facilitator
     this.arkhiaService = arkhiaService
     this.computationEngine = computationEngine
     this.productRegistry = productRegistry
+    
+    // Use provided producer account ID, or fall back to env var, or throw error
+    this.producerAccountId = producerAccountId || process.env.PRODUCER_AGENT_ID || process.env.HEDERA_ACCOUNT_ID || ''
+    if (!this.producerAccountId) {
+      throw new Error('Producer account ID required: provide producerAccountId or set PRODUCER_AGENT_ID/HEDERA_ACCOUNT_ID env var')
+    }
     
     // Default price: 0.3 HBAR (for testing, use small amount like 0.0003 HBAR)
     // Get from product registry if available, otherwise use env or default
@@ -188,9 +196,9 @@ export class TrustScoreRoute {
    * Create payment requirements for trust score request
    */
   private createPaymentRequirements(accountId: string): PaymentRequirements {
-    const hederaAccountId = process.env.HEDERA_ACCOUNT_ID
-    if (!hederaAccountId) {
-      throw new Error('HEDERA_ACCOUNT_ID environment variable is required')
+    // Use producer account ID (set in constructor)
+    if (!this.producerAccountId) {
+      throw new Error('Producer account ID not configured')
     }
 
     // Get price from product registry (preferred) or use default
@@ -201,7 +209,7 @@ export class TrustScoreRoute {
       scheme: 'exact',
       network: 'hedera-testnet',
       asset: 'HBAR',
-      payTo: hederaAccountId,
+      payTo: this.producerAccountId, // Use producer's account ID
       maxAmountRequired: price, // HBAR format (e.g., "0.3")
       resource: `/trustscore/${accountId}`,
       description: `Trust score for account ${accountId}`,
